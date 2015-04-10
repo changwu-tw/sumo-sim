@@ -3,6 +3,10 @@
 .DS_Store
 *.txt
 .ipynb_checkpoints
+*.dot
+*.gml
+*.png
+*.pyc
 
 
 !typemal.xml

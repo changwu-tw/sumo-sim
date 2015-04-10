@@ -14,7 +14,7 @@ from random import choice
 import networkx as nx
 from numpy import genfromtxt
 
-from sumo-sim import helper
+from sumo_sim import helper
 
 # 18728 words
 with open('dictionary', 'rb') as f:
@@ -102,7 +102,7 @@ def main():
     ndtype = [('a', int), ('b', int), ('c', float)]
 
     G = nx.DiGraph()
-    edges = genfromtxt('accusation.txt', delimiter=' ', dtype=ndtype)
+    edges = genfromtxt('../edgelist/accusation_list.txt', delimiter=' ', dtype=ndtype)
     for e in edges:
         if e[0] != e[1]:
             G.add_edge(e[0], e[1])
