@@ -1,0 +1,8 @@
+*.xml
+*.gpslane
+.DS_Store
+*.txt
+.ipynb_checkpoints
+
+
+!typemal.xml
