@@ -1,18 +1,22 @@
 import random
+import sys
 
 import pandas as pd
-
 
 def decision(probability):
     return random.random() < probability
 
 
 def main():
-    df = pd.read_csv('../adsc/adsc.gpslane', delimiter='\t', header=None)
+    curr_dir = sys.argv[1]
+    filepath = '../{}/{}.gpslane'.format(curr_dir, curr_dir)
+
+    df = pd.read_csv(filepath, delimiter='\t', header=None)
     df.columns = ['id', 'x', 'y', 'lane_id', 'speed', 'angle', 'slope', 'timestep']
 
     # read adsc.gpslane
-    f = open('accusation_list.txt', 'w')
+    accusation_file = '{}_accusation_list.txt'.format(curr_dir)
+    f = open(accusation_file, 'w')
 
     timestep = list(set(df.timestep))
 

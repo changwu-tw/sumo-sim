@@ -97,18 +97,24 @@ def info():
 
 
 def main():
+    curr_dir = sys.argv[1]
+    time = sys.argv[2]
+
     # Generate a cert-cert graph
     # G = helper.vehicle_accusation_graph(20, 0.1)
     ndtype = [('a', int), ('b', int), ('c', float)]
 
+    filepath = '../edgelist/{}_accusation_list.txt'.format(curr_dir)
+
     G = nx.DiGraph()
-    edges = genfromtxt('../edgelist/accusation_list.txt', delimiter=' ', dtype=ndtype)
+    edges = genfromtxt(filepath, delimiter=' ', dtype=ndtype)
     for e in edges:
         if e[0] != e[1]:
             G.add_edge(e[0], e[1])
 
     # For filename
-    current = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    current = '{}_{}'.format(curr_dir, time)
+    # current = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 
     # print 'Generate a new cert-cert graph'
     saveGraph(G, current, '1')
