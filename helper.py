@@ -93,6 +93,7 @@ def saveToDotGraph(G, filename):
     # cmd = 'sfdp -x -Goverlap=scale -Tpng {} > {}'.format(dotname, pngname)
     if os.system(cmd) == 0:
         cmd = 'rm -f {}'.format(dotname)
+        os.system(cmd)
 
 
 def saveToNxGraph(G, filename):
@@ -144,6 +145,7 @@ def graph_info(G):
     print 'nodes: ' + ', '.join(str(i) for i in G.nodes())
     print 'edges: ' + ', '.join(str(i) for i in G.edges())
     print
+
 
 def findNodesInDegreeIsEqualZero(G):
     l = []
