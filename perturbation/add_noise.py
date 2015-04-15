@@ -7,12 +7,14 @@ import random
 import sys
 sys.path.append('../..')
 
+from collections import Counter
 from datetime import datetime
 from random import choice
 
 import networkx as nx
 import numpy as np
 from numpy import genfromtxt
+import pandas as pd
 
 from sumo_sim import helper
 
@@ -22,7 +24,8 @@ with open('dictionary', 'rb') as f:
 
 percentage = 0.2
 index = 0
-timeslot = True
+timeslot = False
+NUMBER_OF_ACCUSED = 5
 
 
 def getVnodes():
@@ -38,10 +41,10 @@ def saveGraph(G, filename, dir):
 
 def graphInfo(G):
     helper.draw_table(G)
-    helper.graph_info(G)
+    # helper.graph_info(G)
 
 
-def method(G):
+def method1(G):
     num_of_necessary_vnodes = (int)(math.ceil(G.number_of_nodes()*percentage))
     num_of_necessary_vedges = (int)(math.ceil(G.number_of_edges()*percentage))
 
@@ -70,6 +73,63 @@ def method(G):
     return G
 
 
+def K_anonymize(G):
+    # graphInfo(G)
+
+    degrees = zip(G.in_degree().values(), G.out_degree().values())
+
+    df = pd.DataFrame(data=zip(G.nodes(), degrees), columns=['id', 'deg'])
+    d = dict(df['deg'].value_counts())
+    # print d
+
+    depressed_nodes = []
+    processed_nodes = []
+    for k, v in d.iteritems():
+        if v == 1:
+            node_id = df[df['deg'] == k].id.values[0]
+            # print node_id
+            ix = G.nodes().index(node_id)
+            in_deg_num = G.in_degree().values()[ix]
+
+            if in_deg_num <= NUMBER_OF_ACCUSED:
+                processed_nodes.append(ix)
+            else:
+                depressed_nodes.append(G.nodes()[ix])
+
+    # print "--" * 20
+    # print depressed_nodes
+    # print processed_nodes
+
+    for nix in processed_nodes:
+        vertex1 = getVnodes()
+
+        in_deg_num = G.in_degree().values()[nix]
+        out_deg_num = G.out_degree().values()[nix]
+
+        for in_deg in range(in_deg_num):
+            vertex2 = getVnodes()
+            G.add_node(vertex1, color='blue', style='filled')
+            G.add_node(vertex2, color='blue', style='filled')
+            G.add_edge(vertex2, vertex1, color='green')
+
+            # print "{} ---> {}".format(vertex2, vertex1)
+
+        for out_deg in range(out_deg_num):
+            try:
+                vertex2 = depressed_nodes.pop()
+            except:
+                vertex2 =getVnodes()
+
+            G.add_node(vertex1, color='blue', style='filled')
+            G.add_node(vertex2, color='blue', style='filled')
+            G.add_edge(vertex1, vertex2, color='green')
+            # print "{} ---> {}".format(vertex1, vertex2)
+
+    # graphInfo(G)
+
+    return G
+
+
 def main():
     curr_dir = sys.argv[1]
     time = sys.argv[2]
@@ -83,7 +143,8 @@ def main():
     G = nx.DiGraph()
 
     index = 1
-    for i in xrange(0, len(events)/3, 60):
+    for i in xrange(0, len(events)/4, 60):
+    # for i in xrange(0, 720, 60):
         H = nx.DiGraph()
 
         # Retrieve graph per minute
@@ -97,16 +158,25 @@ def main():
             filename = '{}_{:0>4d}'.format(curr_dir, (i+60))
 
             # timeslot version
-            saveGraph(H, filename, curr_dir)
+            # saveGraph(H, filename, curr_dir)
 
             if timeslot == True: continue
 
             # Orignal graph
             saveGraph(G, filename, curr_dir)
 
-            # Perturbation grpah
-            G = method(G)
+            # if i == 120:
+            #     break
+
+            G = K_anonymize(G)
             saveGraph(G, filename, curr_dir)
+
+
+
+#######################################
+########## Perturbation grpah #########
+            # G = method1(G)
+            # saveGraph(G, filename, curr_dir)
 
 
 if __name__ == '__main__':
