@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import itertools
-import logging
 import math
+import os
 import random
-
 import sys
 sys.path.append('../..')
 
@@ -12,6 +11,7 @@ from datetime import datetime
 from random import choice
 
 import networkx as nx
+import numpy as np
 from numpy import genfromtxt
 
 from sumo_sim import helper
@@ -22,23 +22,18 @@ with open('dictionary', 'rb') as f:
 
 percentage = 0.2
 
-logging.basicConfig(level=logging.INFO)
-# logging.basicConfig(filename='run.log',level=logging.DEBUG)
-# logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 
 def getVnodes():
     global virtual_nodes
     return virtual_nodes.pop(0)
 
 
-def saveGraph(G, current, index):
+def saveGraph(G, current, index, dir):
     # Save graph to gml
-    nx.write_gml(G, '{}_{}.gml'.format(index, current))
+    nx.write_gml(G, '{}/{}_{}.gml'.format(dir, index, current))
 
     # Save graph to png
-    helper.saveToDotGraph(G, '{}_{}'.format(index, current))
+    helper.saveToDotGraph(G, '{}/{}_{}'.format(dir, index, current))
 
 
 def graphInfo(G):
@@ -83,49 +78,68 @@ def method(G):
     return G
 
 
-def test():
-    import timeit
-    print(timeit.timeit('main()',
-        setup='from __main__ import main', number=100))
-
-
-def info():
-    G = nx.read_gml('1_2015-03-10-21-53-54.gml')
-    graphInfo(G)
-    G = nx.read_gml('2_2015-03-10-21-53-54.gml')
-    graphInfo(G)
-
-
 def main():
     curr_dir = sys.argv[1]
     time = sys.argv[2]
 
     # Generate a cert-cert graph
-    # G = helper.vehicle_accusation_graph(20, 0.1)
-    ndtype = [('a', int), ('b', int), ('c', float)]
-
+    ndtype = [('u', int), ('v', int), ('time', float)]
     filepath = '../edgelist/{}_accusation_list.txt'.format(curr_dir)
 
-    G = nx.DiGraph()
-    edges = genfromtxt(filepath, delimiter=' ', dtype=ndtype)
-    for e in edges:
-        if e[0] != e[1]:
+    events = genfromtxt(filepath, delimiter=' ', dtype=ndtype)
+
+    H = nx.DiGraph()
+    I = nx.DiGraph()
+
+    for i in xrange(0, len(events), 60):
+        # Orignal subgraph
+        G = nx.DiGraph()
+        edges = events[np.logical_and(events['time'] > i, events['time'] < (i+60))]
+        for e in edges:
             G.add_edge(e[0], e[1])
+        current = '{}_{:0>4d}_{:0>4d}'.format(curr_dir, i, (i+60))
+        # saveGraph(G, current, '1', curr_dir)
 
-    # For filename
-    current = '{}_{}'.format(curr_dir, time)
-    # current = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+        H.add_edges_from(G.edges())
+        saveGraph(H, 'merge_'+current, '1', curr_dir)
 
-    # print 'Generate a new cert-cert graph'
-    saveGraph(G, current, '1')
-    # graphInfo(G)
+        # Perturbation graph
+        # G = method(G)
+        # saveGraph(G, current, '2', curr_dir)
 
-    G = method(G)
-    saveGraph(G, current, '2')
-    # graphInfo(G)
+        I = method(H)
+        saveGraph(I, 'merge_'+current, '2', curr_dir)
+
+
+
+    # np.select[events['time'] > 0, events['time'] < 60]
+
+    # # G = nx.DiGraph()
+    # for row in rows:
+    #     print row[2]
+
+
+
+
+    # G = nx.DiGraph()
+    # edges = genfromtxt(filepath, delimiter=' ', dtype=ndtype)
+    # for e in edges:
+    #     G.add_edge(e[0], e[1])
+
+    # # filename
+    # if not os.path.exists(curr_dir):
+    #     os.makedirs(curr_dir)
+
+    # current = '{}_{}'.format(curr_dir, time)
+    # # current = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+
+    # saveGraph(G, current, '1', curr_dir)
+
+
+    # # Perturbation
+    # G = method(G)
+    # saveGraph(G, current, '2', curr_dir)
 
 
 if __name__ == '__main__':
     main()
-    # info()
-    # test()

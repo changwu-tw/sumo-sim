@@ -38,13 +38,13 @@ def main():
 
             if tmp_vids not in prev_vids:
                 # Exist a misbehavior vehicle and is detected
-                if decision(0.1) and decision(0.8):
+                if decision(0.1):
                     bad_vid = random.choice(vids)
 
-                    vids.tolist().remove(bad_vid)
-
                     for vid in vids:
-                        f.write('{} {} {}\n'.format(vid, bad_vid, t))
+                        if vid != bad_vid and decision(0.8):
+                            f.write('{} {} {}\n'.format(vid, bad_vid, t))
+
             curr_vids.append(tmp_vids)
 
         prev_vids = curr_vids
