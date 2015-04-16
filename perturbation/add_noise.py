@@ -8,6 +8,7 @@ import sys
 sys.path.append('../..')
 
 from collections import Counter
+from collections import OrderedDict
 from datetime import datetime
 from random import choice
 
@@ -74,13 +75,15 @@ def method1(G):
 
 
 def K_anonymize(G):
-    # graphInfo(G)
+#######
+    graphInfo(G)
 
     degrees = zip(G.in_degree().values(), G.out_degree().values())
 
     df = pd.DataFrame(data=zip(G.nodes(), degrees), columns=['id', 'deg'])
     d = dict(df['deg'].value_counts())
-    # print d
+#######
+    print d
 
     depressed_nodes = []
     processed_nodes = []
@@ -95,10 +98,10 @@ def K_anonymize(G):
                 processed_nodes.append(ix)
             else:
                 depressed_nodes.append(G.nodes()[ix])
-
-    # print "--" * 20
-    # print depressed_nodes
-    # print processed_nodes
+#######
+    print "--" * 20
+    print depressed_nodes
+    print processed_nodes
 
     for nix in processed_nodes:
         vertex1 = getVnodes()
@@ -111,8 +114,8 @@ def K_anonymize(G):
             G.add_node(vertex1, color='blue', style='filled')
             G.add_node(vertex2, color='blue', style='filled')
             G.add_edge(vertex2, vertex1, color='green')
-
-            # print "{} ---> {}".format(vertex2, vertex1)
+#######
+            print "{} ---> {}".format(vertex2, vertex1)
 
         for out_deg in range(out_deg_num):
             try:
@@ -123,11 +126,80 @@ def K_anonymize(G):
             G.add_node(vertex1, color='blue', style='filled')
             G.add_node(vertex2, color='blue', style='filled')
             G.add_edge(vertex1, vertex2, color='green')
-            # print "{} ---> {}".format(vertex1, vertex2)
+#######
+            print "{} ---> {}".format(vertex1, vertex2)
 
-    # graphInfo(G)
+    graphInfo(G)
 
     return G
+
+
+def anonymize(G):
+#######
+    graphInfo(G)
+
+    degrees = zip(G.in_degree().values(), G.out_degree().values())
+    nodes = G.nodes()
+    degree_table = dict(zip(nodes, degrees))
+
+    # Sorting degree_table by degree
+    sorted_table = OrderedDict()
+    for k in sorted(degree_table, key=degree_table.get):
+        sorted_table[k] = degree_table[k]
+        print '{:3} -> {:6}'.format(k, degree_table[k])
+
+    """
+    Nodes need to be anonymized
+    unique_degree & in degree is larger than a particular threshold
+    """
+    unique_degree = [k for k, v in Counter(sorted_table.values()).iteritems() if v == 1]
+    non_anonymize_nodes = []
+    conviction_nodes = []
+    for deg in unique_degree:
+        for k, v in sorted_table.iteritems():
+            if deg == v:
+                if deg[0] <= NUMBER_OF_ACCUSED:
+                    non_anonymize_nodes.append(k)
+                else:
+                    conviction_nodes.append(k)
+#######
+    print conviction_nodes
+
+    for i in non_anonymize_nodes:
+        vertex1 = i
+        in_deg, out_deg = sorted_table[i]
+
+#######
+Determine case by case
+
+#######
+        print 'node {}'.format(i)
+        print '[IN, OUT] = [{}, {}]'.format(in_deg, out_deg)
+
+        for in_deg in range(in_deg):
+            vertex2 = getVnodes()
+            G.add_node(vertex1, color='blue', style='filled')
+            G.add_node(vertex2, color='blue', style='filled')
+            G.add_edge(vertex2, vertex1, color='green')
+#######
+            print "{} ---> {}".format(vertex2, vertex1)
+
+        for out_deg in range(out_deg):
+            try:
+                vertex2 = conviction_nodes.pop()
+            except:
+                vertex2 = getVnodes()
+
+            G.add_node(vertex1, color='blue', style='filled')
+            G.add_node(vertex2, color='blue', style='filled')
+            G.add_edge(vertex1, vertex2, color='green')
+    #######
+            print "{} ---> {}".format(vertex1, vertex2)
+
+#######
+    graphInfo(G)
+    return G
+
 
 
 def main():
@@ -165,10 +237,10 @@ def main():
             # Orignal graph
             saveGraph(G, filename, curr_dir)
 
-            # if i == 120:
-            #     break
+            if i == 120:
+                break
 
-            G = K_anonymize(G)
+            G = anonymize(G)
             saveGraph(G, filename, curr_dir)
 
 
