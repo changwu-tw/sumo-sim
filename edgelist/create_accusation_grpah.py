@@ -2,9 +2,19 @@ import random
 import sys
 
 import pandas as pd
+from random import randint
+
 
 def decision(probability):
     return random.random() < probability
+
+
+# print randint(0, 10000000)
+# p_pd = 0.01
+# p_pf = 1e-7
+p_pd = 0.5
+p_pf = 1e-4
+p_mb = 0.1
 
 
 def main():
@@ -38,12 +48,18 @@ def main():
 
             if tmp_vids not in prev_vids:
                 # Exist a misbehavior vehicle and is detected
-                if decision(0.1):
+                if decision(p_mb):
                     bad_vid = random.choice(vids)
 
                     for vid in vids:
-                        if vid != bad_vid and decision(0.8):
+                        if vid != bad_vid and decision(p_pd):
                             f.write('{} {} {}\n'.format(vid, bad_vid, t))
+                else:
+                    good_vid = random.choice(vids)
+
+                    for vid in vids:
+                        if vid != good_vid and decision(p_pf):
+                            f.write('{} {} {}\n'.format(vid, good_vid, t))
 
             curr_vids.append(tmp_vids)
 

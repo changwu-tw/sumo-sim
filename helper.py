@@ -108,9 +108,16 @@ def saveToNxGraph(G, filename):
 
 
 def draw_table(G):
-    in_degrees = ['[I]'] + G.in_degree().values()
-    out_degrees = ['[O]'] + G.out_degree().values()
-    degrees = ['[T]'] + nx.degree(G).values()
+    in_deg = []
+    out_deg = []
+
+    for i in G.nodes():
+        in_deg.append(G.in_degree(i))
+        out_deg.append(G.out_degree(i))
+
+    in_degrees = ['[I]'] + in_deg
+    out_degrees = ['[O]'] + out_deg
+    degrees = ['[T]'] + [x + y for x, y in zip(in_deg, out_deg)]
 
     output = '{:^4}' * (nx.number_of_nodes(G)+1)
 
