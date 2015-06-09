@@ -1,28 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import itertools
 import math
+import errno
 import os
-import random
-import sys
-sys.path.append('../..')
 
-from collections import Counter
-from collections import OrderedDict
-from datetime import datetime
-from random import choice
+import helper
+from numpy import genfromtxt
 
 import networkx as nx
 import numpy as np
-from numpy import genfromtxt
 import pandas as pd
+import matplotlib.pyplot as plt
 
-from sumo_sim import helper
-
-# 18728 words
-with open('dictionary', 'rb') as f:
-    virtual_nodes = f.read().split(',')
+import random
+import sys
+sys.path.append('../..')
 
 
 PIC_INDEX = 0
@@ -31,13 +24,17 @@ NUMBER_OF_K = 2
 COLOR_OF_FAKE_NODE = "#01DF01"          # GREEN
 COLOR_OF_FAKE_EDGE = "#2E64FE"          # BLUE
 COLOR_OF_CONVICETED_NODE = "#FE2E2E"    # RED
-CAPTURE_PER_SECONDS = 100
+CAPTURE_PER_SECONDS = 60
+
 curr_dir = ''
+virtual_nodes = []
 
 
-def memoize(f):
-    cache = {}
-    return lambda *args: cache[args] if args in cache else cache.update({args: f(*args)}) or cache[args]
+def readVnodes():
+    global virtual_nodes
+    # 18728 words
+    with open('dictionary', 'rb') as f:
+        virtual_nodes = f.read().split(',')
 
 
 def getVnodes():
@@ -50,9 +47,7 @@ def getVnodes():
 def saveGraph(G, filename):
     """Create graph image
     """
-    global PIC_INDEX
-    PIC_INDEX += 1
-    helper.saveToDotGraph(G, '{}/{:0>3d}_{}'.format(curr_dir, PIC_INDEX, filename))
+    helper.saveToDotGraph(G, '{}/{}'.format(curr_dir, filename))
 
 
 def graphInfo(G):
@@ -91,6 +86,7 @@ def findNotKNodes(df):
     """Find the nodes that do not staify K degree in the graph
     """
     NotKDegree = findNotKDegree(df.degree.value_counts())
+    NotKDegree = sorted(NotKDegree, reverse=True)
     return nonAnonymizeNodes(df, NotKDegree)
 
 
@@ -126,6 +122,7 @@ def add_noise(G, vertex1, number_of_in_degs_need, number_of_out_degs_need, convi
         G.add_node(vertex1, color=COLOR_OF_FAKE_NODE, style='filled')
         G.add_node(vertex2, color=COLOR_OF_FAKE_NODE, style='filled')
         G.add_edge(vertex2, vertex1, color=COLOR_OF_FAKE_EDGE)
+        print "add {} -> {}".format(vertex2, vertex1)
 
     for i in range(number_of_out_degs_need):
         vertex2 = getVertex2(conviction_nodes)
@@ -134,6 +131,8 @@ def add_noise(G, vertex1, number_of_in_degs_need, number_of_out_degs_need, convi
         G.add_node(vertex1, color=COLOR_OF_FAKE_NODE, style='filled')
         G.add_node(vertex2, color=COLOR_OF_FAKE_NODE, style='filled')
         G.add_edge(vertex1, vertex2, color=COLOR_OF_FAKE_EDGE)
+        print "add {} -> {}".format(vertex1, vertex2)
+    print
     return G
 
 
@@ -159,12 +158,18 @@ def anonymize(G):
     convicted = []
 
     df = pd.DataFrame(getGraphData(G), columns=['node', 'degree', 'in_deg', 'out_deg'])
-
     conviction_nodes, non_anonymize_nodes = findNotKNodes(df)
+
     convicted += conviction_nodes
-    for node in non_anonymize_nodes:
+    while non_anonymize_nodes:
+        node = non_anonymize_nodes.pop(0)
+        print "Processing Node {}".format(node)
+        print
+        graphInfo(G)
+
         # Check non-anonymization nodes with unique degree
         conviction_tmp_nodes, non_anonymize_tmp_nodes = findNotKNodes(df)
+        print "% --->", non_anonymize_tmp_nodes
         convicted += conviction_tmp_nodes
 
         if node in non_anonymize_tmp_nodes:
@@ -196,6 +201,7 @@ def anonymize(G):
                 elif len(cf_nodes) <= NUMBER_OF_K:
                     for vertex in cf_nodes:
                         G = add_noise(G, vertex, in_deg-cf_deg[0], out_deg-cf_deg[1], conviction_nodes)
+                        df = updateDataframe(G)
                     for i in range(NUMBER_OF_K-1-len(cf_nodes)):
                         G = createNewNode(G, in_deg, out_deg, conviction_nodes)
                 else:
@@ -206,10 +212,12 @@ def anonymize(G):
                     G = createNewNode(G, in_deg, out_deg, conviction_nodes)
             # Update dataframe
             df = updateDataframe(G)
-
+            conviction_nodes, non_anonymize_nodes = findNotKNodes(df)
+        graphInfo(G)
     G = updateConvictedColor(G, list(set(convicted)))
 
     # test(G)
+    # print df.degree.value_counts()
     return G
 
 
@@ -223,40 +231,64 @@ def test(G):
         print df.degree.value_counts()
 
 
+def spectral_graph(G):
+    A = nx.adjacency_matrix(G).todense()
+    print A
+    e = np.linalg.eigvals(A)
+
+    # L = nx.laplacian_matrix(G)
+    # e = nx.laplacian_spectrum(G)
+    print "Largest eigenvalue:", max(e)
+    print "Smallest eigenvalue:", min(e)
+
+    plt.hist(e, bins=100)
+    plt.xlim(0, math.ceil(max(e)))
+    plt.show()
+
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
 def main():
-    global curr_dir
+    global curr_dir, PIC_INDEX
     curr_dir = sys.argv[1]
 
     # Generate a cert-cert graph
-    ndtype = [('u', int), ('v', int), ('time', float)]
+    # ndtype = [('u', int), ('v', int), ('time', float)]
+    ndtype = [('u', int), ('v', int)]
 
-    # filepath = '../edgelist/{}_accusation_list.txt'.format(curr_dir)
-    filepath = '../edgelist/0.2_adsc_accusation_list.txt'
-    # filepath = '../edgelist/0423_0.5_{}_accusation_list.txt'.format(curr_dir)
+    PIC_INDEX = 0
+    readVnodes()
 
-    # Dataframe
+    filepath = 'test_graph.txt'
+
+    # Read graph
     events = genfromtxt(filepath, delimiter=' ', dtype=ndtype)
 
     G = nx.DiGraph()
+    edges = events
+    for e in edges:
+        G.add_edge(e[0], e[1])
 
-    for i in xrange(0, len(events), CAPTURE_PER_SECONDS):
-        # Retrieve graph per unit
-        edges = events[np.logical_and(events['time'] > i, events['time'] < (i+CAPTURE_PER_SECONDS))].tolist()
+    if not os.path.exists(curr_dir):
+        mkdir_p(curr_dir)
 
-        if len(edges) > 0:
-            for e in edges:
-                G.add_edge(e[0], e[1])
+    # Orignal graph
+    saveGraph(G, 'Original')
+    spectral_graph(G)
 
-            # Filename
-            filename = '{}_{:0>4d}'.format(curr_dir, (i+CAPTURE_PER_SECONDS))
+    G = anonymize(G)
 
-            # Orignal graph
-            saveGraph(G, filename)
-
-            print 'time: {:0>5d}'.format(i)
-            G = anonymize(G)
-
-            saveGraph(G, filename)
+    # Anonymization graph
+    saveGraph(G, 'Anonymization')
+    spectral_graph(G)
 
 
 if __name__ == '__main__':

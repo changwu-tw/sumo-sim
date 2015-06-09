@@ -1,72 +1,68 @@
+import pandas as pd
 import random
 import sys
 
-import pandas as pd
-from random import randint
+from scipy import spatial
 
 
-def decision(probability):
-    return random.random() < probability
-
-
-# print randint(0, 10000000)
-# p_pd = 0.01
-# p_pf = 1e-7
-p_pd = 0.5
-p_pf = 1e-4
+p_pf = 1e-7
 p_mb = 0.1
+radius = 20
 
 
-def main():
+def decision(p):
+    return random.random() < p
+
+
+if __name__ == '__main__':
     curr_dir = sys.argv[1]
-    filepath = '../{}/{}.gpslane'.format(curr_dir, curr_dir)
+    filepath = '../{0}/{0}.gpslane'.format(curr_dir)
 
     df = pd.read_csv(filepath, delimiter='\t', header=None)
     df.columns = ['id', 'x', 'y', 'lane_id', 'speed', 'angle', 'slope', 'timestep']
 
-    # read adsc.gpslane
-    accusation_file = '{}_accusation_list.txt'.format(curr_dir)
-    f = open(accusation_file, 'w')
+    # settings
+    pd_vars = [0.01, 0.05, 0.1, 0.2]     # 0.3, 0.4, 0.5
+    for p_pd in pd_vars:
+        print p_pd
 
-    timestep = list(set(df.timestep))
+        # read adsc.gpslane
+        accusation_file = '{0}_{1}_accusation_list.txt'.format(p_pd, curr_dir)
 
-    prev_vids = []
-    for t in timestep:
-        # Get vehicle information on timestep t
-        dt = df[df['timestep'] == t]
+        with open(accusation_file, 'w') as f:
 
-        # Check whether there is any vehicle on the same lane?
-        d = dict(dt['lane_id'].value_counts())
+            timestep = list(set(df.timestep))
 
-        curr_vids = []
-        for k, v in d.iteritems():
-            if v == 1: continue
+            for t in timestep:
+                # Get vehicle information on timestep t
+                dt = df[df.timestep == t]
 
-            # Get the nearby vehicle ids
-            vids = dt[dt['lane_id'] == k].id.values
-            tmp_vids = ', '.join(str(v) for v in vids)
+                # Get vehicle's position
+                x, y = dt.x, dt.y
+                pos = zip(x.ravel(), y.ravel())
+                tree = spatial.cKDTree(pos)
 
-            if tmp_vids not in prev_vids:
-                # Exist a misbehavior vehicle and is detected
-                if decision(p_mb):
-                    bad_vid = random.choice(vids)
-
-                    for vid in vids:
-                        if vid != bad_vid and decision(p_pd):
-                            f.write('{} {} {}\n'.format(vid, bad_vid, t))
-                else:
-                    good_vid = random.choice(vids)
-
-                    for vid in vids:
-                        if vid != good_vid and decision(p_pf):
-                            f.write('{} {} {}\n'.format(vid, good_vid, t))
-
-            curr_vids.append(tmp_vids)
-
-        prev_vids = curr_vids
-
-    f.close()
-
-
-if __name__ == '__main__':
-    main()
+                for i, veh in enumerate(pos):
+                    # A misbehavior vehicle exist
+                    if decision(p_mb):
+                        bad_vid = dt.iloc[i].id
+                        # Get a list of the indices of the neighbors of vehicle
+                        dt_index = tree.query_ball_point(veh, radius)
+                        if dt_index:
+                            for index in dt_index:
+                                nearby_vid = dt.iloc[index].id
+                                if bad_vid != nearby_vid and decision(p_pd):
+                                    bad_loc = dt.iloc[i].x, dt.iloc[i].y
+                                    nearby_loc = dt.iloc[index].x, dt.iloc[index].y
+                                    f.write('{0} {1} {2} {3} {4} {5}\n'.format(nearby_vid, bad_vid, nearby_loc, bad_loc, 'T', t))
+                    else:
+                        good_vid = dt.iloc[i].id
+                        # Get a list of the indices of the neighbors of vehicle
+                        dt_index = tree.query_ball_point(veh, radius)
+                        if dt_index:
+                            for index in dt_index:
+                                nearby_vid = dt.iloc[index].id
+                                if good_vid != nearby_vid and decision(p_pf):
+                                    good_loc = dt.iloc[i].x, dt.iloc[i].y
+                                    nearby_loc = dt.iloc[index].x, dt.iloc[index].y
+                                    f.write('{0} {1} {2} {3} {4} {5}\n'.format(nearby_vid, good_vid, nearby_loc, good_loc, 'F', t))

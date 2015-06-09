@@ -8,3 +8,7 @@ autoscript for sumo simulation
 2. Create a new folder
 3. Add .osm file and run.sh in the folder
 4. Run run.sh
+
+
+## gpslane format
+id, x, y, lane#, speed, angle, slope, time
